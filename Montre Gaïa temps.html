@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Cadran Géocentrique UTC – Jour / Nuit</title>
+
+<style>
+body {
+  margin: 0;
+  background: radial-gradient(#050b1e, #000);
+  color: white;
+  font-family: Arial, sans-serif;
+  overflow: hidden;
+}
+canvas { display: block; }
+
+#panel {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background: rgba(0,0,0,0.6);
+  padding: 14px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+</style>
+</head>
+<body>
+
+<div id="panel">
+  <strong>Temps UTC réel</strong><br>
+  Vue géocentrique – plan de l’écliptique<br>
+  Terre : jour / nuit orientés par le Soleil
+</div>
+
+<canvas id="canvas"></canvas>
+
+<script>
+/* ===============================
+   DONNÉES ANGULAIRES (° / jour)
+   =============================== */
+
+const BODIES = [
+  { name: "Lune", speed: 12.857, color: "#ddd" },
+  { name: "Soleil", speed: 0.989010989010989, color: "#ffcc33" },
+  { name: "Mercure", speed: 0.989010989010989, color: "#aaa" },
+  { name: "Vénus", speed: 0.989010989010989, color: "#e6c28b" },
+  { name: "Mars", speed: 0.494505494505495, color: "#ff6b4a" },
+  { name: "Jupiter", speed: 0.082417582417582, color: "#d2b48c" },
+  { name: "Saturne", speed: 0.032967032967033, color: "#e8d090" },
+  { name: "Uranus", speed: 0.011773940345369, color: "#7fffd4" },
+  { name: "Neptune", speed: 0.006030554811043, color: "#4169e1" },
+  { name: "Pluton", speed: 0.003987947536335, color: "#bbb" },
+  { name: "Étoile", speed: 0.002997002997003, color: "#88f" },
+  { name: "Triangle", speed: 0.00240051210925, color: "#f88" },
+  { name: "Point Vernal", speed: 0.000038156288156, color: "#0f0" }
+];
+
+/* ===============================
+   CANVAS
+   =============================== */
+
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener("resize", resize);
+resize();
+
+const cx = () => canvas.width / 2;
+const cy = () => canvas.height / 2;
+
+/* ===============================
+   TEMPS UTC
+   =============================== */
+
+const t0 = Date.UTC(2000, 0, 1, 12, 0, 0); // J2000.0
+const msPerDay = 86400000;
+
+/* ===============================
+   CALCUL ANGULAIRE
+   =============================== */
+
+function longitude(body) {
+  const now = Date.now();
+  const days = (now - t0) / msPerDay;
+  return (days * body.speed) % 360;
+}
+
+function angleRad(deg) {
+  return deg * Math.PI / 180 - Math.PI / 2;
+}
+
+/* ===============================
+   DESSIN
+   =============================== */
+
+function drawOrbit(r) {
+  ctx.beginPath();
+  ctx.arc(cx(), cy(), r, 0, Math.PI * 2);
+  ctx.strokeStyle = "rgba(255,255,255,0.08)";
+  ctx.stroke();
+}
+
+/* --- Terre jour / nuit --- */
+function drawEarthDayNight(sunAngle) {
+  const R = 16;
+
+  // Nuit
+  ctx.beginPath();
+  ctx.arc(cx(), cy(), R, 0, Math.PI * 2);
+  ctx.fillStyle = "#0b1a2b";
+  ctx.fill();
+
+  // Jour
+  ctx.save();
+  ctx.translate(cx(), cy());
+  ctx.rotate(sunAngle);
+
+  const grad = ctx.createRadialGradient(6, 0, 2, 0, 0, R);
+  grad.addColorStop(0, "#6fa8dc");
+  grad.addColorStop(1, "#1c4587");
+
+  ctx.beginPath();
+  ctx.arc(0, 0, R, -Math.PI/2, Math.PI/2);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawBody(body, index) {
+  const lon = longitude(body);
+  const angle = angleRad(lon);
+  const r = 80 + index * 38;
+
+  drawOrbit(r);
+
+  const x = cx() + r * Math.cos(angle);
+  const y = cy() + r * Math.sin(angle);
+
+  ctx.beginPath();
+  ctx.arc(x, y, 5, 0, Math.PI * 2);
+  ctx.fillStyle = body.color;
+  ctx.fill();
+
+  ctx.fillStyle = body.color;
+  ctx.font = "12px Arial";
+  ctx.fillText(`${body.name} ${lon.toFixed(2)}°`, x + 6, y - 6);
+}
+
+/* ===============================
+   BOUCLE
+   =============================== */
+
+function animate() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Soleil pour l’orientation jour/nuit
+  const sun = BODIES.find(b => b.name === "Soleil");
+  const sunAngle = angleRad(longitude(sun));
+
+  drawEarthDayNight(sunAngle);
+
+  BODIES.forEach(drawBody);
+
+  requestAnimationFrame(animate);
+}
+
+animate();
+</script>
+
+</body>
+</html>
